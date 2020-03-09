@@ -1,4 +1,5 @@
 import inspect
+import sys
 import functools
 import itertools
 import math
@@ -144,14 +145,33 @@ def busops_main(roles, bias, aggregate):
     return text_result, [cf_avg_dist(i, busops_dist, 0) for i in result]
 
 if __name__ == "__main__":
-    biases = [1, 1.5, 2, 2.5, 3]
-    roles = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
-    for bias in biases:
-        result, costs = busops_main(roles, bias, False)
+    roles = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    aggregate = False
+
+    # Default: Run through a comfy range of biases and output each result
+    if len(sys.argv) < 2:
+        biases = [1, 1.5, 2, 2.5, 3]
+        for bias in biases:
+            result, costs = busops_main(roles, bias, aggregate)
+
+            print("Bias: ", bias)
+            print("Total Cost: ",
+                  round(sum(map(lambda x: round(x, 2), costs)), 3))
+            for group, cost in zip(result, map(lambda x: round(x, 2), costs)):
+                print(" ", group, " : ", cost)
+            print(" ")
+    # Use command line arguments
+    else:
+        if len(sys.argv) >= 3:
+            aggregate = bool(int(sys.argv[2]))
+            print(aggregate)
+        bias = float(sys.argv[1])
+        result, costs = busops_main(roles, bias, aggregate)
 
         print("Bias: ", bias)
-        print("Total Cost: ", round(sum(map(lambda x: round(x, 2), costs)), 3))
+        print("Total Cost: ",
+              round(sum(map(lambda x: round(x, 2), costs)), 3))
         for group, cost in zip(result, map(lambda x: round(x, 2), costs)):
             print(" ", group, " : ", cost)
         print(" ")

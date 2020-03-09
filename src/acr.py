@@ -1,4 +1,5 @@
 import inspect
+import functools
 import itertools
 import math
 import operator
@@ -54,26 +55,19 @@ def min_weighted_set_cover_solver(elements, subsets, cost):
 
     return used_subsets
     
+def eccentricity(subset, dists):
+    assert callable(dists)
+    return [max([dists(i, item) for i in subset]) for item in subset]
 
 def avg_eccentricity(subset, dists):
     assert callable(dists)
-    total = 0
-    for item_a in subset:
-        maximum = 0
-        for item_b in subset:
-            maximum = max(maximum, dists(item_a, item_b))
-        total += maximum
-    return total / len(subset)
+    return sum(eccentricity(subset, dists))/len(subset)
 
 def max_eccentricity(subset, dists):
     assert callable(dists)
-    maximum = 0
-    for item_a in subset:
-        for item_b in subset:
-            maximum = max(maximum, dists(item_a, item_b))
-    return maximum
+    return functools.reduce(max, eccentricity(subset, dists))
 
-def testcostfunc_bias(subset, dists, bias):
+def cf_avg_dist(subset, dists, bias):
     assert callable(dists)
     aci = bias
     for i in subset:
@@ -82,9 +76,9 @@ def testcostfunc_bias(subset, dists, bias):
     aci /= len(subset)
     return aci
 
-def testcostfunc(bias):
-    def newfunc(subset, dists):
-        return testcostfunc_bias(subset, dists, bias)
+def c_arg_3(func, arg_3):
+    def newfunc(arg_1, arg_2):
+        return func(arg_1, arg_2, arg_3)
     return newfunc
 
 def cost_ecc(function, dists):
@@ -93,33 +87,7 @@ def cost_ecc(function, dists):
         return function(subset, dists)
     return new_ecc_func
 
-def evaluate(solution, cost):
-    assert callable(cost)
-    total = 0
-    for i in solution:
-        total += cost(i)
-    return total
-
-def euc_dist(a, b):
-    return abs(a - b)
-
-def test_main(bias):
-    #test_in  = [1, 2, 3, 4, 5, 6, 9, 11, 21]
-    test_in = [round(random.random(), 2) for i in range(10)]
-
-    #print ("Input: ", test_in)
-    def test_solve (lst, cost_func):
-        return solve(min_weighted_set_cover_solver, lst, list_index, list_permute, cost_func)
-
-    #test_out_a = test_solve(test_in, cost_ecc(max_eccentricity, operator.add))
-    #test_out_b = test_solve(test_in, cost_ecc(avg_eccentricity, operator.add))
-    #print("Max Ecc: ", test_out_a, " w/ cost ", evaluate(test_out_a, cost_ecc(max_eccentricity, euc_dist)))
-    #print("Avg Ecc: ", test_out_b, " w/ cost ", evaluate(test_out_b, cost_ecc(avg_eccentricity, euc_dist)))
-    return test_solve(test_in, cost_ecc(testcostfunc(bias), euc_dist))
-
-def busops_main(bias, aggregate):
-    roles = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-   #roles = [3, 4, 5, 6, 7, 8, 9]
+def busops_main(roles, bias, aggregate):
     def test_solve (lst, cost_func):
         return solve(min_weighted_set_cover_solver, lst, list_index, list_permute, cost_func)
 
@@ -137,6 +105,7 @@ def busops_main(bias, aggregate):
     r_n[8] = "Website"
     r_n[9] = "Graphics"
 
+    # My opinions only
     if not aggregate:
         r_c[0] = [5]
         r_c[1] = [4, 5]
@@ -148,6 +117,7 @@ def busops_main(bias, aggregate):
         r_c[7] = [0, 0, 0, 4, 3, 2, 1, 5]
         r_c[8] = [2, 1, 0, 3, 3, 4, 3, 3, 5]
         r_c[9] = [0, 0, 0, 1, 0, 0, 0, 4, 3, 5]
+    # Average of all surveyed connectivity opinions
     else:
         r_c[0] = [5]
         r_c[1] = [4, 5]
@@ -164,37 +134,26 @@ def busops_main(bias, aggregate):
         least = min(a, b)
         most = max(b, a)
         return 1 - (r_c[most][least]*0.2)# + random.random()/10
-    def parse_group(a):
-        return [r_n[i] for i in a]
 
-    result = test_solve(roles, cost_ecc(testcostfunc(bias), busops_dist))
-    text_result = list(map(parse_group, result))
+    result = test_solve(roles,
+                        cost_ecc(c_arg_3(cf_avg_dist, bias),
+                        busops_dist))
 
-    #print (cost_ecc(testcostfunc(bias), busops_dist)([0, 0]))
+    text_result = list(map(lambda x: [r_n[i] for i in x], result))
 
-    return text_result, [cost_ecc(testcostfunc(0), busops_dist)(i) for i in result]
+    return text_result, [cf_avg_dist(i, busops_dist, 0) for i in result]
 
 if __name__ == "__main__":
-    #entries = {}
-    #trials = 25
-    #for i in range (50):
-    #    total = 0
-    #    for j in range(trials):
-    #        result = test_main(i / 10)
-    #        #print("Fancy Cost Function: ", result, " w/ cost ", round(evaluate(result, cost_ecc(testcostfunc(i / 10), euc_dist)), 2))
-    #        total += len(result)
-    #    entries[i] = total/trials;
-    #for entry in range (len(entries)):
-    #    print ("Average # of Groupings w/ bias =  ", entry/10, ": ", entries[entry])
-    #result = busops_main(0.1100000000000000074941)
     biases = [1, 1.5, 2, 2.5, 3]
+    roles = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
     for bias in biases:
-        result, costs = busops_main(bias, False)
+        result, costs = busops_main(roles, bias, False)
 
         print("Bias: ", bias)
         print("Total Cost: ", round(sum(map(lambda x: round(x, 2), costs)), 3))
         for group, cost in zip(result, map(lambda x: round(x, 2), costs)):
             print(" ", group, " : ", cost)
         print(" ")
+
 

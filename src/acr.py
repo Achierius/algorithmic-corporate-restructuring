@@ -1,6 +1,7 @@
 import inspect
 import sys
 import functools
+from functools import reduce
 import itertools
 import math
 import operator
@@ -24,6 +25,38 @@ def list_permute(lst):
     for i in range(len(lst)):
         combs.extend(itertools.combinations(lst, i))
     return [i for i in combs if len(i) > 0]
+
+def min_cost_4_partition_solver(elements, subsets, cost):
+    subsets = [[], [], [], []]
+    mincost = math.inf
+    mincost_bitstring = 0b0
+    current_bitstring = 0b0
+    def string_to_partition(bitstring):
+        #print(bin(bitstring))
+        mask = 0b11
+        partitions = [[], [], [], []]
+        for element in elements:
+            target = bitstring & mask
+            #print(" Bitstring: ", bin(bitstring))
+            #print(" Mask: ", bin(mask))
+            #print(" Result: ", bin(target))
+            #print(" Index: ", int(target))
+            partitions[int(target)].append(element)
+            bitstring >>= 2
+        return partitions
+            
+    print("Analysing", pow(4, len(elements)),
+          "possible permutations of", len(elements), "elements for optimality...")
+    for i in range(pow(4, len(elements))):
+        partition = string_to_partition(current_bitstring)
+        #print(current_bitstring, partition)
+        part_cost = reduce(operator.add, map(cost, partition))
+        if part_cost < mincost:
+            mincost_bitstring = current_bitstring
+            mincost = part_cost
+        current_bitstring += 1
+
+    return string_to_partition(mincost_bitstring)
 
 def min_weighted_set_cover_solver(elements, subsets, cost):
     uncovered = elements.copy()
@@ -66,10 +99,12 @@ def avg_eccentricity(subset, dists):
 
 def max_eccentricity(subset, dists):
     assert callable(dists)
-    return functools.reduce(max, eccentricity(subset, dists))
+    return reduce(max, eccentricity(subset, dists))
 
 def cf_avg_dist(subset, dists, bias):
     assert callable(dists)
+    if not subset:
+        return math.inf
     aci = bias
     for i in subset:
         for j in subset:
@@ -90,8 +125,11 @@ def cost_ecc(function, dists):
 
 def busops_main(roles, bias, aggregate):
     def test_solve (lst, cost_func):
-        return solve(min_weighted_set_cover_solver, lst, list_index, list_permute, cost_func)
-
+        return solve(min_weighted_set_cover_solver,
+                     lst, list_index, list_permute, cost_func)
+    def part_solve (lst, cost_func):
+        return solve(min_cost_4_partition_solver,
+                     lst, list_index, list_permute, cost_func)
     r_n = {} # Names of various responsibilities w/in busops
     r_c = {} # Connectedness of various responsibilities w/in busops (non-transitive!)
 
@@ -146,7 +184,7 @@ def busops_main(roles, bias, aggregate):
         most = max(b, a)
         return 1 - (r_c[most][least]*0.2)# + random.random()/10
 
-    result = test_solve(roles,
+    result = part_solve(roles,#test_solve(roles,
                         cost_ecc(c_arg_3(cf_avg_dist, bias),
                         busops_dist))
 
@@ -161,7 +199,7 @@ if __name__ == "__main__":
 
     # Default: Run through a comfy range of biases and output each result
     if len(sys.argv) < 2:
-        biases = [1, 1.5, 2, 2.5, 3]
+        biases = [0, 1.5, 2, 2.5, 3]
         for bias in biases:
             result, costs = busops_main(roles, bias, aggregate)
 
